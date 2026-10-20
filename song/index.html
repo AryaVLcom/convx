@@ -570,44 +570,32 @@
         else if (playlistId) path = `playlist?list=${playlistId}`;
         else if (artistId) path = `channel/${artistId}`;
 
-        // Schemes and Intents for both published version (com.arsa.aryavl / arsa://)
-        // and new Convx version (com.convx.music / convx://)
-        const arsaScheme = `arsa://${path}`;
+        // Convx custom scheme (new build)
         const convxScheme = `convx://${path}`;
-        const intentArsa = `intent://listen.aryavl.com/${path}#Intent;scheme=https;package=com.arsa.aryavl;end`;
-        const intentConvx = `intent://convx.aryavl.com/${path}#Intent;scheme=https;package=com.convx.music;end`;
-        const intentMusic = `intent://music.youtube.com/${path}#Intent;scheme=https;end`;
+        // Convx explicit component intent (launches the installed published Convx app directly)
+        const intentConvxComponent = `intent://music.youtube.com/${path}#Intent;scheme=https;package=com.convx.music;component=com.convx.music/.MainActivity;end`;
+        // Convx domain intent (new build)
+        const intentConvxDomain = `intent://convx.aryavl.com/${path}#Intent;scheme=https;package=com.convx.music;end`;
 
-        btnOpenConvx.href = intentArsa;
+        btnOpenConvx.href = intentConvxComponent;
         btnOpenConvx.onclick = (e) => {
           e.preventDefault();
           const start = Date.now();
-          // 1. Try published app scheme arsa:// (launches instantly if installed)
-          window.location.href = arsaScheme;
 
-          // 2. Try published package intent com.arsa.aryavl
-          setTimeout(() => {
-            if (document.hidden || Date.now() - start > 1500) return;
-            window.location.href = intentArsa;
-          }, 180);
+          // 1. Try explicit component intent for installed Convx
+          window.location.href = intentConvxComponent;
 
-          // 3. Try convx:// scheme (for newly built APK)
+          // 2. Try direct convx:// scheme (for updated build)
           setTimeout(() => {
             if (document.hidden || Date.now() - start > 1500) return;
             window.location.href = convxScheme;
-          }, 400);
+          }, 200);
 
-          // 4. Try com.convx.music intent
+          // 3. Try domain intent
           setTimeout(() => {
             if (document.hidden || Date.now() - start > 1500) return;
-            window.location.href = intentConvx;
-          }, 650);
-
-          // 5. Try universal YouTube Music intent (catches either player)
-          setTimeout(() => {
-            if (document.hidden || Date.now() - start > 1500) return;
-            window.location.href = intentMusic;
-          }, 900);
+            window.location.href = intentConvxDomain;
+          }, 500);
         };
       }
 
