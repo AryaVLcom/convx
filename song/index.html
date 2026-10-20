@@ -564,18 +564,50 @@
 
       const fallbackDownloadUrl = "https://github.com/cosmictaserdev-creator/Convx/releases/latest";
 
-      function setupLaunchButton(directScheme, intentUrl) {
-        btnOpenConvx.href = intentUrl;
+      function setupLaunchButton(videoId, playlistId, artistId) {
+        let path = '';
+        if (videoId) path = `watch?v=${videoId}`;
+        else if (playlistId) path = `playlist?list=${playlistId}`;
+        else if (artistId) path = `channel/${artistId}`;
+
+        // Schemes and Intents for both published version (com.arsa.aryavl / arsa://)
+        // and new Convx version (com.convx.music / convx://)
+        const arsaScheme = `arsa://${path}`;
+        const convxScheme = `convx://${path}`;
+        const intentArsa = `intent://listen.aryavl.com/${path}#Intent;scheme=https;package=com.arsa.aryavl;end`;
+        const intentConvx = `intent://convx.aryavl.com/${path}#Intent;scheme=https;package=com.convx.music;end`;
+        const intentMusic = `intent://music.youtube.com/${path}#Intent;scheme=https;end`;
+
+        btnOpenConvx.href = intentArsa;
         btnOpenConvx.onclick = (e) => {
           e.preventDefault();
           const start = Date.now();
-          // 1. Try direct custom scheme (opens new Convx builds or debug builds)
-          window.location.href = directScheme;
-          // 2. Fall back to package-targeted Intent (launches published Convx app via music.youtube.com, or redirects to GitHub releases)
+          // 1. Try published app scheme arsa:// (launches instantly if installed)
+          window.location.href = arsaScheme;
+
+          // 2. Try published package intent com.arsa.aryavl
           setTimeout(() => {
             if (document.hidden || Date.now() - start > 1500) return;
-            window.location.href = intentUrl;
-          }, 300);
+            window.location.href = intentArsa;
+          }, 180);
+
+          // 3. Try convx:// scheme (for newly built APK)
+          setTimeout(() => {
+            if (document.hidden || Date.now() - start > 1500) return;
+            window.location.href = convxScheme;
+          }, 400);
+
+          // 4. Try com.convx.music intent
+          setTimeout(() => {
+            if (document.hidden || Date.now() - start > 1500) return;
+            window.location.href = intentConvx;
+          }, 650);
+
+          // 5. Try universal YouTube Music intent (catches either player)
+          setTimeout(() => {
+            if (document.hidden || Date.now() - start > 1500) return;
+            window.location.href = intentMusic;
+          }, 900);
         };
       }
 
@@ -585,13 +617,11 @@
         if (videoId) {
           const maxres = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
           const hq = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-          const directScheme = `convx://watch?v=${videoId}`;
-          const intentUrl = `intent://music.youtube.com/watch?v=${videoId}#Intent;scheme=https;package=com.convx.music;S.browser_fallback_url=${encodeURIComponent(fallbackDownloadUrl)};end`;
 
           coverArt.src = maxres;
           coverArt.onerror = () => { coverArt.src = hq; };
 
-          setupLaunchButton(directScheme, intentUrl);
+          setupLaunchButton(videoId, null, null);
 
           try {
             const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
@@ -609,19 +639,15 @@
             songArtist.textContent = 'Convx Music';
           }
         } else if (playlistId) {
-          const directScheme = `convx://playlist?list=${playlistId}`;
-          const intentUrl = `intent://music.youtube.com/playlist?list=${playlistId}#Intent;scheme=https;package=com.convx.music;S.browser_fallback_url=${encodeURIComponent(fallbackDownloadUrl)};end`;
           songName.textContent = `Shared Playlist`;
           songArtist.textContent = `Playlist (${playlistId})`;
           coverArt.src = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=85";
-          setupLaunchButton(directScheme, intentUrl);
+          setupLaunchButton(null, playlistId, null);
         } else if (artistId) {
-          const directScheme = `convx://channel/${artistId}`;
-          const intentUrl = `intent://music.youtube.com/channel/${artistId}#Intent;scheme=https;package=com.convx.music;S.browser_fallback_url=${encodeURIComponent(fallbackDownloadUrl)};end`;
           songName.textContent = `Artist Channel`;
           songArtist.textContent = `Artist (${artistId})`;
           coverArt.src = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1200&q=85";
-          setupLaunchButton(directScheme, intentUrl);
+          setupLaunchButton(null, null, artistId);
         }
       }
 
