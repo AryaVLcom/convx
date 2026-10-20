@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liquid Glass — Editorial Interface</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ==========================================================================
+       Liquid Glass Design System — Token Definitions
+       ========================================================================== */
+    :root {
+      /* Palette: 1 dominant (Warm Amber Ochre), 1 accent (Acid Lichen), 2 neutrals (Ink Umber & Bone) */
+      --color-ink: #0d0c0a;
+      --color-ink-deep: #070706;
+      --color-ink-muted: #1e1b17;
+      --color-bone: #f4eee6;
+      --color-bone-muted: #9b948a;
+      --color-bone-dim: #645f56;
+      --color-dominant: #d97724;
+      --color-dominant-glow: rgba(217, 119, 36, 0.28);
+      --color-accent: #a3e635;
+      --color-accent-subtle: rgba(163, 230, 53, 0.15);
+
+      /* Typography */
+      --font-serif: 'Fraunces', Georgia, serif;
+      --font-sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      --font-mono: 'Space Mono', monospace;
+
+      /* Glass tokens: thickness, blur, saturation */
+      --glass-thin-blur: 14px;
+      --glass-med-blur: 22px;
+      --glass-thick-blur: 38px;
+      --glass-saturate: 185%;
+      --glass-brightness: 1.06;
+
+      /* Shadows & Highlights */
+      --glass-border-light: rgba(255, 250, 240, 0.22);
+      --glass-border-dark: rgba(255, 250, 240, 0.04);
+      --glass-specular: rgba(255, 255, 255, 0.18);
+      --glass-shadow: 0 28px 60px -15px rgba(5, 4, 3, 0.65), 0 10px 24px -10px rgba(13, 12, 10, 0.5);
+      --glass-shadow-deep: 0 40px 90px -20px rgba(0, 0, 0, 0.8), 0 16px 36px -12px rgba(217, 119, 36, 0.12);
+
+      --radius-sm: 12px;
+      --radius-md: 20px;
+      --radius-lg: 32px;
+      --radius-pill: 999px;
+      --radius-asym: 28px 18px 32px 22px;
+
+      --transition-spring: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s ease, border-color 0.3s ease;
+    }
+
+    /* Baseline Reset */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      background-color: var(--color-ink);
+      color: var(--color-bone);
+      font-family: var(--font-sans);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      overflow-x: hidden;
+      min-height: 100vh;
+      position: relative;
+      background: var(--color-ink);
+    }
+
+    /* ==========================================================================
+       Background Canvas: Refraction Canvas with Film Grain & Ambient Drift
+       ========================================================================== */
+    .backdrop-stage {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    /* Organic chromatic forms worth refracting */
+    .bg-shape {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      will-change: transform;
+      mix-blend-mode: screen;
+      opacity: 0.65;
+    }
+
+    .shape-1 {
+      width: 680px;
+      height: 680px;
+      background: radial-gradient(circle at 40% 40%, var(--color-dominant) 0%, rgba(180, 83, 9, 0.7) 45%, transparent 75%);
+      top: -120px;
+      left: -80px;
+      animation: driftSlow 36s ease-in-out infinite alternate;
+    }
+
+    .shape-2 {
+      width: 580px;
+      height: 640px;
+      background: radial-gradient(circle at 50% 50%, #2a3d24 0%, #152518 50%, transparent 75%);
+      top: 35%;
+      right: -100px;
+      animation: driftReverse 42s ease-in-out infinite alternate;
+    }
+
+    .shape-3 {
+      width: 740px;
+      height: 520px;
+      background: radial-gradient(circle at 45% 45%, #6a3a14 0%, #30170a 55%, transparent 80%);
+      bottom: -150px;
+      left: 20%;
+      animation: driftDiag 40s ease-in-out infinite alternate;
+    }
+
+    .shape-accent {
+      width: 320px;
+      height: 320px;
+      background: radial-gradient(circle, var(--color-accent) 0%, transparent 70%);
+      top: 25%;
+      left: 45%;
+      opacity: 0.22;
+      filter: blur(95px);
+      animation: pulseSubtle 18s ease-in-out infinite alternate;
+    }
+
+    /* Oversized typography underlay specifically to give the glass detailed edge lines to refract */
+    .bg-type-layer {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 6vh 4vw;
+      user-select: none;
+      pointer-events: none;
+      opacity: 0.08;
+      font-family: var(--font-serif);
+      font-size: clamp(6rem, 16vw, 20rem);
+      font-style: italic;
+      font-weight: 300;
+      line-height: 0.85;
+      letter-spacing: -0.05em;
+      color: var(--color-bone);
+    }
+
+    .bg-type-row-1 { transform: translateX(-4vw); }
+    .bg-type-row-2 { text-align: right; transform: translateX(6vw); }
+
+    /* Film Grain Overlay */
+    .film-grain {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.038;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    }
+
+    @keyframes driftSlow {
+      0% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
+      50% { transform: translate3d(80px, 90px, 0) scale(1.08) rotate(4deg); }
+      100% { transform: translate3d(-40px, 120px, 0) scale(0.96) rotate(-3deg); }
+    }
+
+    @keyframes driftReverse {
+      0% { transform: translate3d(0, 0, 0) scale(1); }
+      100% { transform: translate3d(-100px, -70px, 0) scale(1.12); }
+    }
+
+    @keyframes driftDiag {
+      0% { transform: translate3d(0, 0, 0) scale(1); }
+      100% { transform: translate3d(90px, -60px, 0) scale(1.05); }
+    }
+
+    @keyframes pulseSubtle {
+      0% { transform: scale(0.95); opacity: 0.16; }
+      100% { transform: scale(1.25); opacity: 0.28; }
+    }
+
+    /* ==========================================================================
+       Liquid Glass Component Architecture
+       ========================================================================== */
+    .glass-element {
+      position: relative;
+      background: linear-gradient(
+        140deg,
+        rgba(255, 255, 255, 0.07) 0%,
+        rgba(255, 255, 255, 0.02) 60%,
+        rgba(0, 0, 0, 0.15) 100%
+      );
+      backdrop-filter: blur(var(--glass-med-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+      -webkit-backdrop-filter: blur(var(--glass-med-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+      border-radius: var(--radius-md);
+      box-shadow: var(--glass-shadow);
+      isolation: isolate;
+      overflow: hidden;
+      transition: var(--transition-spring);
+    }
+
+    /* 3. Gradient inner edge stroke simulating rim light */
+    .glass-element::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(
+        135deg,
+        var(--glass-border-light) 0%,
+        rgba(255, 255, 255, 0.08) 35%,
+        transparent 65%,
+        var(--glass-border-dark) 100%
+      );
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* 4. Specular Highlight: Moving cursor-reactive radial beam */
+    .glass-element::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: radial-gradient(
+        circle 280px at var(--mouse-x, 50%) var(--mouse-y, 0%),
+        var(--glass-specular),
+        transparent 70%
+      );
+      opacity: 0.65;
+      pointer-events: none;
+      z-index: 3;
+      transition: opacity 0.3s ease;
+    }
+
+    /* Thickness variation 1: Thin (Navigation & pills) */
+    .glass-thin {
+      backdrop-filter: blur(var(--glass-thin-blur)) saturate(160%) brightness(1.04);
+      -webkit-backdrop-filter: blur(var(--glass-thin-blur)) saturate(160%) brightness(1.04);
+      background: rgba(26, 24, 21, 0.55);
+      box-shadow: 0 14px 35px -8px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Thickness variation 2: Thick & Heavily Refractive (Focal piece) */
+    .glass-thick {
+      backdrop-filter: blur(var(--glass-thick-blur)) saturate(210%) brightness(1.1);
+      -webkit-backdrop-filter: blur(var(--glass-thick-blur)) saturate(210%) brightness(1.1);
+      background: linear-gradient(
+        145deg,
+        rgba(255, 255, 255, 0.12) 0%,
+        rgba(255, 255, 255, 0.03) 40%,
+        rgba(15, 13, 10, 0.35) 100%
+      );
+      box-shadow: var(--glass-shadow-deep);
+    }
+
+    /* Optional SVG Lens Filter for browsers with url(#glass) backdrop-filter support */
+    @supports (backdrop-filter: url(#glass-lens)) {
+      .glass-thick {
+        backdrop-filter: url(#glass-lens) blur(var(--glass-thick-blur)) saturate(210%);
+        -webkit-backdrop-filter: url(#glass-lens) blur(var(--glass-thick-blur)) saturate(210%);
+      }
+    }
+
+    /* ==========================================================================
+       Layout Framework & Negative Space
+       ========================================================================== */
+    .page-wrapper {
+      position: relative;
+      z-index: 10;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 clamp(20px, 4vw, 64px);
+    }
+
+    /* Floating Navigation (Asymmetrical) */
+    .site-nav-container {
+      position: sticky;
+      top: 24px;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 8px;
+      margin-bottom: clamp(60px, 10vh, 120px);
+    }
+
+    .nav-capsule {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      padding: 8px 10px 8px 24px;
+      border-radius: var(--radius-pill);
+    }
+
+    .brand-mark {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--color-bone);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-mark span {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--color-dominant);
+      display: inline-block;
+    }
+
+    .nav-menu {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .nav-item-link {
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--color-bone-muted);
+      text-decoration: none;
+      transition: color 0.25s ease;
+      letter-spacing: -0.01em;
+    }
+
+    .nav-item-link:hover, .nav-item-link:focus-visible {
+      color: var(--color-bone);
+    }
+
+    /* Tactile Glass Buttons */
+    .glass-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 10px 22px;
+      font-family: var(--font-sans);
+      font-size: 0.88rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--color-bone);
+      text-decoration: none;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      border: none;
+      outline: none;
+      user-select: none;
+    }
+
+    .glass-btn:focus-visible {
+      box-shadow: 0 0 0 2px var(--color-ink), 0 0 0 4px var(--color-dominant);
+    }
+
+    .glass-btn-primary {
+      background: linear-gradient(135deg, rgba(217, 119, 36, 0.45) 0%, rgba(217, 119, 36, 0.15) 100%);
+      border: 1px solid rgba(255, 215, 175, 0.35);
+      box-shadow: 0 10px 24px -6px var(--color-dominant-glow);
+    }
+
+    .glass-btn-primary:hover {
+      transform: translateY(-2px);
+      background: linear-gradient(135deg, rgba(217, 119, 36, 0.6) 0%, rgba(217, 119, 36, 0.25) 100%);
+      box-shadow: 0 14px 30px -4px var(--color-dominant-glow);
+    }
+
+    .glass-btn-primary:active {
+      transform: translateY(1px) scale(0.98);
+      box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.4);
+    }
+
+    .glass-btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .glass-btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      transform: translateY(-2px);
+    }
+
+    /* Section Meta Indexing */
+    .index-tag {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--color-bone-dim);
+      margin-bottom: 16px;
+      display: inline-block;
+    }
+
+    .index-tag::before {
+      content: '// ';
+      color: var(--color-dominant);
+    }
+
+    /* ==========================================================================
+       SECTION 1: HERO (Asymmetric & Layered)
+       ========================================================================== */
+    .hero-layout {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: clamp(40px, 6vw, 90px);
+      align-items: center;
+      margin-bottom: clamp(100px, 16vh, 200px);
+      position: relative;
+    }
+
+    .hero-editorial {
+      position: relative;
+      z-index: 5;
+    }
+
+    .hero-headline {
+      font-family: var(--font-serif);
+      font-size: clamp(3.2rem, 6.5vw, 6.2rem);
+      font-weight: 400;
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+      margin-bottom: 32px;
+      color: var(--color-bone);
+    }
+
+    .hero-headline em {
+      font-style: italic;
+      font-weight: 300;
+      color: var(--color-dominant);
+      padding-right: 0.05em;
+    }
+
+    .hero-prose {
+      font-size: clamp(1.05rem, 1.25vw, 1.25rem);
+      color: var(--color-bone-muted);
+      max-width: 480px;
+      line-height: 1.65;
+      font-weight: 300;
+      margin-bottom: 44px;
+    }
+
+    .hero-interaction {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    /* Hero Monolithic Glass Lens (Overlapping focal piece) */
+    .hero-lens-card {
+      position: relative;
+      padding: clamp(32px, 4vw, 56px);
+      border-radius: var(--radius-asym);
+      transform: rotate(-1deg);
+      overflow: visible;
+    }
+
+    .lens-inner-content {
+      position: relative;
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+    }
+
+    .lens-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 16px;
+    }
+
+    .lens-label {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      color: var(--color-bone-muted);
+    }
+
+    .lens-numeral {
+      font-family: var(--font-serif);
+      font-size: 3.2rem;
+      line-height: 1;
+      font-style: italic;
+      color: var(--color-bone);
+    }
+
+    .lens-specimen-box {
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: var(--radius-sm);
+      padding: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .lens-specimen-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+
+    .lens-specimen-body {
+      font-size: 0.88rem;
+      color: var(--color-bone-muted);
+      line-height: 1.6;
+    }
+
+    .lens-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .lens-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      color: var(--color-accent);
+    }
+
+    .indicator-pulse {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-accent);
+      box-shadow: 0 0 10px var(--color-accent);
+    }
+
+    /* Edge-break element extending beyond the hero card */
+    .lens-tag-float {
+      position: absolute;
+      top: -18px;
+      right: 28px;
+      padding: 6px 16px;
+      border-radius: var(--radius-pill);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      background: var(--color-dominant);
+      color: #000;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      box-shadow: 0 8px 20px rgba(217, 119, 36, 0.4);
+      z-index: 10;
+    }
+
+    /* ==========================================================================
+       SECTION 2: ASYMMETRIC DUAL RHYTHM (60/40 Split, Uneven Heights)
+       ========================================================================== */
+    .section-dual {
+      margin-bottom: clamp(100px, 16vh, 200px);
+    }
+
+    .dual-grid {
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 40px;
+      align-items: start;
+    }
+
+    .card-tall {
+      padding: clamp(36px, 5vw, 64px);
+      border-radius: var(--radius-lg);
+      min-height: 480px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .card-tall-head h2 {
+      font-family: var(--font-serif);
+      font-size: clamp(2rem, 3.5vw, 3.2rem);
+      font-weight: 400;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+      line-height: 1.1;
+    }
+
+    .card-tall-head p {
+      color: var(--color-bone-muted);
+      max-width: 500px;
+      font-size: 1.05rem;
+    }
+
+    .meter-cluster {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-top: 48px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 28px;
+    }
+
+    .meter-value {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      font-style: italic;
+      color: var(--color-bone);
+    }
+
+    .meter-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--color-bone-dim);
+      margin-top: 4px;
+    }
+
+    .card-compact {
+      padding: clamp(28px, 4vw, 44px);
+      border-radius: 24px;
+      background: rgba(18, 16, 13, 0.45);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .card-compact h3 {
+      font-size: 1.2rem;
+      letter-spacing: -0.02em;
+      font-weight: 600;
+    }
+
+    .card-compact p {
+      font-size: 0.92rem;
+      color: var(--color-bone-muted);
+      line-height: 1.6;
+    }
+
+    .spec-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.85rem;
+    }
+
+    .spec-key { color: var(--color-bone-dim); font-family: var(--font-mono); }
+    .spec-val { color: var(--color-bone); font-weight: 500; }
+
+    /* ==========================================================================
+       SECTION 3: STEPPED OVERLAP SEQUENCE (Hand-Placed Imperfections)
+       ========================================================================== */
+    .section-stepped {
+      margin-bottom: clamp(120px, 18vh, 220px);
+      position: relative;
+    }
+
+    .stepped-wrap {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    .step-card-1 {
+      width: 72%;
+      padding: clamp(32px, 4vw, 56px);
+      border-radius: 28px;
+      transform: rotate(-0.8deg);
+      align-self: flex-start;
+      z-index: 2;
+    }
+
+    .step-card-2 {
+      width: 68%;
+      padding: clamp(32px, 4vw, 56px);
+      border-radius: 26px;
+      transform: rotate(1.2deg);
+      align-self: flex-end;
+      margin-top: -60px; /* Deliberate overlap */
+      z-index: 4;
+      background: linear-gradient(135deg, rgba(255,255,255,0.09) 0%, rgba(20,18,14,0.6) 100%);
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .step-num {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      color: var(--color-dominant);
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      background: rgba(217, 119, 36, 0.12);
+      border: 1px solid rgba(217, 119, 36, 0.25);
+    }
+
+    .step-title {
+      font-family: var(--font-serif);
+      font-size: 1.85rem;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+    }
+
+    .step-body {
+      color: var(--color-bone-muted);
+      font-size: 0.98rem;
+      line-height: 1.65;
+      max-width: 580px;
+    }
+
+    /* ==========================================================================
+       SECTION 4: STATEMENT MONOLITH (Heavily Refractive Edge Moment)
+       ========================================================================== */
+    .section-monolith {
+      margin-bottom: clamp(100px, 16vh, 200px);
+      position: relative;
+    }
+
+    .monolith-card {
+      width: 100%;
+      border-radius: 36px;
+      padding: clamp(48px, 7vw, 96px) clamp(32px, 5vw, 80px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .monolith-bg-accent {
+      position: absolute;
+      top: -50%;
+      right: -10%;
+      width: 480px;
+      height: 480px;
+      background: radial-gradient(circle, var(--color-dominant-glow) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .monolith-content {
+      position: relative;
+      z-index: 5;
+      max-width: 860px;
+    }
+
+    .monolith-quote {
+      font-family: var(--font-serif);
+      font-size: clamp(2.2rem, 4.2vw, 4rem);
+      font-weight: 300;
+      font-style: italic;
+      line-height: 1.12;
+      letter-spacing: -0.03em;
+      margin-bottom: 32px;
+      color: var(--color-bone);
+    }
+
+    .monolith-author-row {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .author-line {
+      width: 48px;
+      height: 1px;
+      background: var(--color-dominant);
+    }
+
+    .author-meta {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      color: var(--color-bone-muted);
+    }
+
+    /* ==========================================================================
+       SECTION 5: TACTILE GLASS CTA & INPUT
+       ========================================================================== */
+    .section-cta {
+      margin-bottom: clamp(80px, 12vh, 160px);
+    }
+
+    .cta-glass-box {
+      border-radius: 32px;
+      padding: clamp(40px, 6vw, 72px);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .cta-text h2 {
+      font-family: var(--font-serif);
+      font-size: clamp(2.2rem, 3.8vw, 3.2rem);
+      font-weight: 400;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+
+    .cta-text p {
+      color: var(--color-bone-muted);
+      font-size: 1.05rem;
+      max-width: 440px;
+    }
+
+    .cta-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .glass-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .glass-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-pill);
+      padding: 16px 24px;
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      color: var(--color-bone);
+      outline: none;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+      transition: var(--transition-spring);
+    }
+
+    .glass-input::placeholder {
+      color: var(--color-bone-dim);
+    }
+
+    .glass-input:focus {
+      border-color: rgba(217, 119, 36, 0.6);
+      background: rgba(0, 0, 0, 0.5);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5), 0 0 0 3px rgba(217, 119, 36, 0.2);
+    }
+
+    .cta-actions {
+      display: flex;
+      gap: 14px;
+    }
+
+    /* ==========================================================================
+       FOOTER (Technical & Minimal)
+       ========================================================================== */
+    .site-footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 48px 0 64px;
+      position: relative;
+      z-index: 10;
+    }
+
+    .footer-grid {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 24px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--color-bone-dim);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      color: var(--color-bone-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover {
+      color: var(--color-bone);
+    }
+
+    /* ==========================================================================
+       Scroll Triggered Entrance Easing
+       ========================================================================== */
+    .reveal-item {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1), transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+      will-change: opacity, transform;
+    }
+
+    .reveal-item.revealed {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ==========================================================================
+       Responsive & Accessibility Adaptation
+       ========================================================================== */
+    @media (max-width: 992px) {
+      .hero-layout {
+        grid-template-columns: 1fr;
+        gap: 48px;
+      }
+      .dual-grid {
+        grid-template-columns: 1fr;
+      }
+      .step-card-1, .step-card-2 {
+        width: 100%;
+        transform: none;
+        margin-top: 0;
+      }
+      .cta-glass-box {
+        grid-template-columns: 1fr;
+        gap: 36px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .nav-menu {
+        display: none;
+      }
+      .meter-cluster {
+        grid-template-columns: 1fr;
+      }
+      .cta-actions {
+        flex-direction: column;
+      }
+      .footer-grid {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+      .reveal-item {
+        opacity: 1 !important;
+        transform: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SVG Filter Definition for Physical Glass Lens Refraction (FeDisplacementMap) -->
+  <svg style="position: absolute; width: 0; height: 0; pointer-events: none;" aria-hidden="true">
+    <defs>
+      <filter id="glass-lens" x="-10%" y="-10%" width="120%" height="120%" filterUnits="objectBoundingBox">
+        <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" result="noise" />
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="9" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+        <feBlend in="SourceGraphic" in2="displaced" mode="overlay" />
+      </filter>
+    </defs>
+  </svg>
+
+  <!-- Background Refraction Stage -->
+  <div class="backdrop-stage" aria-hidden="true">
+    <div class="bg-shape shape-1" id="shape1"></div>
+    <div class="bg-shape shape-2" id="shape2"></div>
+    <div class="bg-shape shape-3" id="shape3"></div>
+    <div class="bg-shape shape-accent"></div>
+
+    <!-- Oversized Typographic Underlay (gives glass sharp letterforms to refract) -->
+    <div class="bg-type-layer">
+      <div class="bg-type-row-1">REFRACT</div>
+      <div class="bg-type-row-2">ARCHIVE // 01</div>
+    </div>
+  </div>
+
+  <!-- Global Film Grain Overlay -->
+  <div class="film-grain" aria-hidden="true"></div>
+
+  <!-- Page Content Container -->
+  <div class="page-wrapper">
+
+    <!-- Floating Navigation Bar -->
+    <header class="site-nav-container">
+      <nav class="nav-capsule glass-element glass-thin" aria-label="Main Navigation">
+        <a href="#hero" class="brand-mark" id="nav-brand">
+          <span></span> Label
+        </a>
+        <ul class="nav-menu">
+          <li><a href="#section-dual" class="nav-item-link">Index</a></li>
+          <li><a href="#section-stepped" class="nav-item-link">Overview</a></li>
+          <li><a href="#section-monolith" class="nav-item-link">Statement</a></li>
+        </ul>
+        <a href="#section-cta" class="glass-btn glass-btn-primary" id="btn-nav-action">
+          Action
+        </a>
+      </nav>
+      <div class="nav-meta index-tag" style="margin-bottom:0;">
+        SYS.26 // OK
+      </div>
+    </header>
+
+    <main>
+      <!-- SECTION 1: HERO -->
+      <section class="hero-layout" id="hero">
+        <div class="hero-editorial reveal-item">
+          <div class="index-tag">Figure 1.0 — Architecture</div>
+          <h1 class="hero-headline">
+            Heading text <em>refracted</em> with precision.
+          </h1>
+          <p class="hero-prose">
+            Body text goes here. A crafted layout with intentional scale, layered glass materials, and nuanced edge illumination designed for any medium.
+          </p>
+          <div class="hero-interaction">
+            <button class="glass-btn glass-btn-primary" id="btn-hero-primary">
+              Primary Action
+            </button>
+            <button class="glass-btn glass-btn-secondary" id="btn-hero-secondary">
+              Secondary Action
+            </button>
+          </div>
+        </div>
+
+        <!-- Overlapping Thick Glass Lens -->
+        <div class="glass-element glass-thick hero-lens-card reveal-item" data-tilt>
+          <div class="lens-tag-float">SPECIMEN // 01</div>
+          <div class="lens-inner-content">
+            <div class="lens-header">
+              <span class="lens-label">REFRACTIVE INDEX</span>
+              <span class="lens-numeral">1.52</span>
+            </div>
+            <div class="lens-specimen-box">
+              <div class="lens-specimen-title">Card Heading</div>
+              <div class="lens-specimen-body">
+                Body text goes here. The underlying typography bends naturally through chromatic dispersion and caustic edge highlights.
+              </div>
+            </div>
+            <div class="lens-footer">
+              <div class="lens-indicator">
+                <span class="indicator-pulse"></span>
+                <span>Active Layer</span>
+              </div>
+              <span class="lens-label">CALIBRATED</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2: ASYMMETRIC DUAL RHYTHM -->
+      <section class="section-dual" id="section-dual">
+        <div class="dual-grid">
+          <!-- Tall asymmetric left column -->
+          <div class="glass-element card-tall reveal-item" data-tilt>
+            <div class="card-tall-head">
+              <div class="index-tag">Module 02.A</div>
+              <h2>Asymmetric layout with generous space.</h2>
+              <p>
+                Body text goes here. Unlike uniform grids, this asymmetric arrangement offers varied eye movement and distinct focal weight.
+              </p>
+            </div>
+            <div class="meter-cluster">
+              <div class="meter-item">
+                <div class="meter-value">38mm</div>
+                <div class="meter-label">DEPTH METRIC</div>
+              </div>
+              <div class="meter-item">
+                <div class="meter-value">94.2%</div>
+                <div class="meter-label">TRANSMISSION</div>
+              </div>
+              <div class="meter-item">
+                <div class="meter-value">0.08</div>
+                <div class="meter-label">DISPERSION</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Compact right column -->
+          <div class="glass-element card-compact reveal-item" data-tilt>
+            <div class="index-tag">Module 02.B</div>
+            <h3>Specification Data</h3>
+            <p>Body text goes here detailing specific functional parameters.</p>
+            <div class="spec-list">
+              <div class="spec-row">
+                <span class="spec-key">PARAMETER A</span>
+                <span class="spec-val">Active</span>
+              </div>
+              <div class="spec-row">
+                <span class="spec-key">PARAMETER B</span>
+                <span class="spec-val">1,240 nm</span>
+              </div>
+              <div class="spec-row">
+                <span class="spec-key">PARAMETER C</span>
+                <span class="spec-val">Reflected</span>
+              </div>
+              <div class="spec-row">
+                <span class="spec-key">PARAMETER D</span>
+                <span class="spec-val">100%</span>
+              </div>
+            </div>
+            <button class="glass-btn glass-btn-secondary" style="width: 100%;">
+              Detailed View
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 3: STEPPED OVERLAP SEQUENCE -->
+      <section class="section-stepped" id="section-stepped">
+        <div class="index-tag">Module 03 — Sequence</div>
+        <div class="stepped-wrap">
+          <div class="glass-element step-card-1 reveal-item" data-tilt>
+            <div class="step-header">
+              <span class="step-num">01</span>
+              <h3 class="step-title">Primary Sequence Card</h3>
+            </div>
+            <p class="step-body">
+              Body text goes here. This panel is rotated slightly off-axis to introduce micro-imperfections that eliminate robotic alignment.
+            </p>
+          </div>
+
+          <div class="glass-element glass-thick step-card-2 reveal-item" data-tilt>
+            <div class="step-header">
+              <span class="step-num">02</span>
+              <h3 class="step-title">Overlapping Companion Card</h3>
+            </div>
+            <p class="step-body">
+              Body text goes here. Notice how this element physically overlaps the preceding card, allowing the refraction of edge highlights to interact in real time.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 4: MONOLITHIC STATEMENT -->
+      <section class="section-monolith" id="section-monolith">
+        <div class="glass-element glass-thick monolith-card reveal-item" data-tilt>
+          <div class="monolith-bg-accent"></div>
+          <div class="monolith-content">
+            <div class="index-tag">Observation 04</div>
+            <blockquote class="monolith-quote">
+              “Materiality is not an ornament; it is the physical medium through which contrast and light communicate.”
+            </blockquote>
+            <div class="monolith-author-row">
+              <div class="author-line"></div>
+              <span class="author-meta">STATEMENT // ANONYMOUS REFERENCE</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 5: TACTILE GLASS CTA -->
+      <section class="section-cta" id="section-cta">
+        <div class="glass-element cta-glass-box reveal-item">
+          <div class="cta-text">
+            <div class="index-tag">Final Action</div>
+            <h2>Heading for primary conclusion.</h2>
+            <p>Body text goes here prompting the recipient to conclude or initialize the workflow.</p>
+          </div>
+          <form class="cta-form" onsubmit="event.preventDefault();">
+            <div class="glass-input-wrap">
+              <input type="text" class="glass-input" placeholder="Enter placeholder identifier..." aria-label="Input field" id="cta-input">
+            </div>
+            <div class="cta-actions">
+              <button type="submit" class="glass-btn glass-btn-primary" id="btn-cta-submit">
+                Execute Action
+              </button>
+              <button type="button" class="glass-btn glass-btn-secondary" id="btn-cta-cancel">
+                Dismiss
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="site-footer">
+      <div class="footer-grid">
+        <div class="footer-left">
+          <span>COORDINATES: 45°N / 122°W</span>
+        </div>
+        <ul class="footer-links">
+          <li><a href="#">INDEX</a></li>
+          <li><a href="#">COLOPHON</a></li>
+          <li><a href="#">TERMS</a></li>
+        </ul>
+        <div class="footer-right">
+          <span>© 2026 // ALL RIGHTS RESERVED</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Vanilla JS: Cursor Specular Highlight, Gentle Spring Tilt & Parallax -->
+  <script>
+    (function () {
+      'use strict';
+
+      // 1. Specular highlight positioning that follows the cursor
+      const glassElements = document.querySelectorAll('.glass-element');
+
+      function updateSpecularHighlights(e) {
+        glassElements.forEach((el) => {
+          const rect = el.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          el.style.setProperty('--mouse-x', `${x}px`);
+          el.style.setProperty('--mouse-y', `${y}px`);
+        });
+      }
+
+      window.addEventListener('pointermove', updateSpecularHighlights, { passive: true });
+
+      // 2. Micro 3D Tilt with gentle spring easing (Disabled if prefers-reduced-motion)
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      if (!prefersReducedMotion) {
+        const tiltCards = document.querySelectorAll('[data-tilt]');
+
+        tiltCards.forEach((card) => {
+          let reqId = null;
+
+          card.addEventListener('pointermove', (e) => {
+            const rect = card.getBoundingClientRect();
+            const px = (e.clientX - rect.left) / rect.width - 0.5;
+            const py = (e.clientY - rect.top) / rect.height - 0.5;
+
+            if (reqId) cancelAnimationFrame(reqId);
+            reqId = requestAnimationFrame(() => {
+              const rotX = -py * 7;
+              const rotY = px * 7;
+              card.style.transform = `perspective(1000px) rotateX(${rotX.toFixed(2)}deg) rotateY(${rotY.toFixed(2)}deg) translateY(-2px)`;
+            });
+          });
+
+          card.addEventListener('pointerleave', () => {
+            if (reqId) cancelAnimationFrame(reqId);
+            card.style.transform = '';
+          });
+        });
+
+        // 3. Ambient Parallax on background shapes during scroll
+        const shape1 = document.getElementById('shape1');
+        const shape2 = document.getElementById('shape2');
+        const shape3 = document.getElementById('shape3');
+
+        window.addEventListener('scroll', () => {
+          const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+          if (shape1) shape1.style.transform = `translate3d(0, ${scrollY * 0.12}px, 0)`;
+          if (shape2) shape2.style.transform = `translate3d(0, ${-scrollY * 0.08}px, 0)`;
+          if (shape3) shape3.style.transform = `translate3d(0, ${scrollY * 0.05}px, 0)`;
+        }, { passive: true });
+      }
+
+      // 4. Staggered Scroll Reveals via IntersectionObserver
+      const revealItems = document.querySelectorAll('.reveal-item');
+      if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('revealed');
+              observer.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+        revealItems.forEach((item, index) => {
+          item.style.transitionDelay = `${(index % 3) * 0.08}s`;
+          observer.observe(item);
+        });
+      } else {
+        revealItems.forEach((item) => item.classList.add('revealed'));
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "convx-web",
+  "version": "1.0.0",
+  "description": "Convx landing page and dynamic share link resolver for convx.aryavl.com",
+  "main": "src/worker.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^3.109.0"
+  }
+}
